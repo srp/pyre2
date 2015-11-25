@@ -380,12 +380,17 @@ cdef class Pattern:
     cdef int ngroups
     cdef bint encoded
     cdef int _flags
+    cdef dict _groupindex
     cdef public object pattern
     cdef object __weakref__
 
     property flags:
         def __get__(self):
             return self._flags
+
+    property groupindex:
+        def __get__(self):
+            return self._groupindex
 
     property groups:
         def __get__(self):
@@ -979,12 +984,20 @@ def _compile(pattern, int flags=0, int max_mem=8388608):
             warnings.warn("WARNING: Using re module. Reason: %s" % error_msg)
         return re.compile(original_pattern, flags)
 
+    cdef _re2.const_stringintmap * named_groups = _re2.addressof(re_pattern.NamedCapturingGroups())
+    cdef dict groupindex = {}
+    it = named_groups.begin()
+    while it != named_groups.end():
+        groupindex[cpp_to_pystring(deref(it).first)] = deref(it).second
+        inc(it)
+
     cdef Pattern pypattern = Pattern()
     pypattern.pattern = original_pattern
     pypattern.re_pattern = re_pattern
     pypattern.ngroups = re_pattern.NumberOfCapturingGroups()
     pypattern.encoded = <bint>encoded
     pypattern._flags = flags
+    pypattern._groupindex = groupindex
     del s
     return pypattern
 
